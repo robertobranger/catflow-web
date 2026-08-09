@@ -169,12 +169,22 @@ button[type='submit']:disabled {
   transform: translateX(-50%);
   background: var(--ok);
   color: #fff;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
   padding: 0.7rem 1.1rem;
   border-radius: 10px;
   font-weight: 600;
   box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
   max-width: 90vw;
   text-align: center;
+}
+
+.toast-hint {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.85;
 }
 
 .toast.warn {

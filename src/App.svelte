@@ -33,9 +33,24 @@
     };
   }
 
+  let toastTimer;
   function showToast(message, kind = 'ok') {
-    toast = { message, kind };
-    setTimeout(() => (toast = null), 3500);
+    toast = { message, kind, copied: false };
+    clearTimeout(toastTimer);
+    // Errors stay longer so there is time to tap-to-copy them.
+    toastTimer = setTimeout(() => (toast = null), kind === 'error' ? 10000 : 3500);
+  }
+
+  async function copyToast() {
+    if (!toast) return;
+    try {
+      await navigator.clipboard.writeText(toast.message);
+      toast.copied = true;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => (toast = null), 1500);
+    } catch {
+      /* clipboard unavailable (http or no permission); keep toast visible */
+    }
   }
 
   async function updatePending() {
@@ -307,5 +322,10 @@
 {/if}
 
 {#if toast}
-  <div class="toast {toast.kind}">{toast.message}</div>
+  <button type="button" class="toast {toast.kind}" onclick={copyToast}>
+    {toast.copied ? 'Copied to clipboard' : toast.message}
+    {#if toast.kind === 'error' && !toast.copied}
+      <span class="toast-hint">tap to copy</span>
+    {/if}
+  </button>
 {/if}
