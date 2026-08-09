@@ -16,8 +16,10 @@
  * Sheet layout expected:
  *  - Tab "Transactions" with header row:
  *      Date | ID | Concept | Counterparty | Domain | Origin account |
- *      Destination account | Amount | Notes | Date created | Receipt URL
- *  - Tab "Config": Accounts in A2:A, Domains in B2:B (A1/B1 are headers).
+ *      Destination account | Amount | Notes | Date created | Receipt URL |
+ *      Added by
+ *  - Tab "Config": Accounts in A2:A, Domains in B2:B, People in C2:C
+ *    (A1/B1/C1 are headers).
  *
  * Receipt photos:
  *  - "Receipt URL" is column K. Uploaded photos are stored in a Drive folder
@@ -46,6 +48,7 @@ var COL = {
   NOTES: 8,
   CREATED: 9,
   RECEIPT: 10,
+  ADDED_BY: 11,
 };
 
 /**
@@ -55,7 +58,7 @@ var COL = {
  * function in the editor forces the OAuth consent dialog.
  */
 function authorize() {
-  getReceiptFolder_(); // touches Drive, triggering the permission prompt
+  getReceiptFolderId_(); // touches Drive, triggering the permission prompt
   SpreadsheetApp.getActiveSpreadsheet().getName(); // touches Sheets
   Logger.log('Authorized. Receipt folder ready.');
 }
@@ -134,6 +137,7 @@ function addTransaction_(tx) {
     row[COL.NOTES] = tx.notes || '';
     row[COL.CREATED] = tx.dateCreated || new Date().toISOString();
     row[COL.RECEIPT] = receiptUrl;
+    row[COL.ADDED_BY] = tx.addedBy || '';
 
     sheet.appendRow(row);
     return { duplicate: false };
@@ -145,6 +149,11 @@ function addTransaction_(tx) {
 /**
  * Upload the transaction's receipt photo ({ data: base64, mimeType }) to the
  * 'CatFlow Receipts' Drive folder and return the file URL.
+ *
+ * Uses the Advanced Drive Service (Drive v3), NOT DriveApp: DriveApp always
+ * demands the full auth/drive scope, while the advanced service honors the
+ * narrow drive.file scope declared in appsscript.json (the script can only
+ * touch files/folders it created itself).
  */
 function saveReceipt_(tx) {
   var blob = Utilities.newBlob(
@@ -152,38 +161,46 @@ function saveReceipt_(tx) {
     tx.photo.mimeType,
     'receipt-' + tx.id + '.jpg'
   );
-  var folder = getReceiptFolder_();
-  var file = folder.createFile(blob);
-  return file.getUrl();
+  var folderId = getReceiptFolderId_();
+  var file = Drive.Files.create(
+    { name: blob.getName(), parents: [folderId] },
+    blob,
+    { fields: 'id,webViewLink' }
+  );
+  return file.webViewLink;
 }
 
 /**
  * Get or create the 'CatFlow Receipts' folder, caching its id.
  *
- * The script runs with the narrow drive.file scope: it can only see files
- * and folders it created itself. That is why we track the folder by cached
- * id instead of searching Drive by name (searches are not permitted).
- * You can freely move or rename the folder in Drive — the id stays valid.
+ * With drive.file the script cannot search Drive by name, so the folder is
+ * tracked purely by cached id. You can freely move or rename the folder in
+ * Drive — the id stays valid.
  */
-function getReceiptFolder_() {
+function getReceiptFolderId_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('RECEIPT_FOLDER_ID');
   if (id) {
     try {
-      return DriveApp.getFolderById(id);
+      Drive.Files.get(id, { fields: 'id,trashed' });
+      return id;
     } catch (err) {
       // Folder was deleted or id is stale; fall through and recreate.
     }
   }
-  var folder = DriveApp.createFolder('CatFlow Receipts');
-  props.setProperty('RECEIPT_FOLDER_ID', folder.getId());
-  return folder;
+  var folder = Drive.Files.create({
+    name: 'CatFlow Receipts',
+    mimeType: 'application/vnd.google-apps.folder',
+  });
+  props.setProperty('RECEIPT_FOLDER_ID', folder.id);
+  return folder.id;
 }
 
 function getMeta_() {
   var config = getSheet_(CONFIG_SHEET);
   var accounts = columnValues_(config, 1);
   var domains = columnValues_(config, 2);
+  var people = columnValues_(config, 3);
 
   var txSheet = getSheet_(TRANSACTIONS_SHEET);
   var concepts = [];
@@ -200,6 +217,7 @@ function getMeta_() {
   return {
     accounts: accounts,
     domains: domains,
+    people: people,
     concepts: concepts,
     counterparties: counterparties,
   };

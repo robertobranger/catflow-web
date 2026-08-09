@@ -5,8 +5,8 @@ import { loadSettings } from './settings.js';
  * Content-Type text/plain avoids the CORS preflight, which Apps Script
  * cannot answer (no OPTIONS support).
  */
-async function call(action, payload = {}) {
-  const settings = loadSettings();
+async function call(action, payload = {}, overrideSettings = null) {
+  const settings = overrideSettings || loadSettings();
   if (!settings) throw new Error('App is not configured');
 
   const res = await fetch(settings.scriptUrl, {
@@ -35,6 +35,10 @@ export function addTransaction(tx) {
   return call('add', { tx });
 }
 
-export function fetchMeta() {
-  return call('meta');
+/**
+ * Fetch dropdown/autocomplete data. Pass { scriptUrl, token } to use
+ * credentials that are not saved yet (setup screen).
+ */
+export function fetchMeta(overrideSettings = null) {
+  return call('meta', {}, overrideSettings);
 }

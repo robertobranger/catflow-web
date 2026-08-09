@@ -2,7 +2,7 @@ import { fetchMeta } from './api.js';
 
 const KEY = 'catflow.meta';
 
-const EMPTY = { accounts: [], domains: [], concepts: [], counterparties: [] };
+const EMPTY = { accounts: [], domains: [], people: [], concepts: [], counterparties: [] };
 
 export function loadCachedMeta() {
   try {
@@ -23,6 +23,7 @@ export async function refreshMeta() {
   const meta = {
     accounts: data.accounts || [],
     domains: data.domains || [],
+    people: data.people || [],
     concepts: data.concepts || [],
     counterparties: data.counterparties || [],
   };

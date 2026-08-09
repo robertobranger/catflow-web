@@ -1,6 +1,7 @@
 <script>
   import { loadSettings, saveSettings, clearSettings } from './lib/settings.js';
   import { loadCachedMeta, refreshMeta, rememberLocal } from './lib/meta.js';
+  import { fetchMeta } from './lib/api.js';
   import { getQueue, enqueue, flushQueue } from './lib/queue.js';
   import { processPhoto, photoPreviewUrl } from './lib/photo.js';
 
@@ -12,9 +13,13 @@
   let photo = $state(null);
   let photoBusy = $state(false);
 
-  // Setup form
+  // Setup form (two steps: 1 = URL + token, 2 = pick person)
   let setupUrl = $state('');
   let setupToken = $state('');
+  let setupPerson = $state('');
+  let setupStep = $state(1);
+  let setupPeople = $state([]);
+  let setupBusy = $state(false);
 
   // Transaction form
   const today = () => new Date().toISOString().slice(0, 10);
@@ -80,23 +85,59 @@
     return () => window.removeEventListener('online', onOnline);
   });
 
-  function saveSetup(e) {
+  async function setupNext(e) {
     e.preventDefault();
+    if (setupBusy) return;
     const scriptUrl = setupUrl.trim();
     const token = setupToken.trim();
     if (!scriptUrl.startsWith('https://script.google.com/')) {
       showToast('URL should be an Apps Script /exec URL', 'error');
       return;
     }
-    saveSettings({ scriptUrl, token });
-    settings = { scriptUrl, token };
+    setupBusy = true;
+    try {
+      // Doubles as a connectivity/token check before saving anything.
+      const data = await fetchMeta({ scriptUrl, token });
+      setupPeople = data.people || [];
+      if (setupPeople.length === 0) {
+        showToast(
+          'No people found. Add names to column C of the Config sheet tab (header in C1).',
+          'error'
+        );
+        return;
+      }
+      if (!setupPeople.includes(setupPerson)) setupPerson = '';
+      setupStep = 2;
+    } catch (err) {
+      showToast(`Could not connect: ${err.message}`, 'error');
+    } finally {
+      setupBusy = false;
+    }
+  }
+
+  function saveSetup(e) {
+    e.preventDefault();
+    const next = {
+      scriptUrl: setupUrl.trim(),
+      token: setupToken.trim(),
+      person: setupPerson,
+    };
+    if (!next.person) {
+      showToast('Pick who is adding transactions', 'error');
+      return;
+    }
+    saveSettings(next);
+    settings = next;
+    setupStep = 1;
   }
 
   function reconfigure() {
     if (settings) {
       setupUrl = settings.scriptUrl;
       setupToken = settings.token;
+      setupPerson = settings.person || '';
     }
+    setupStep = 1;
     clearSettings();
     settings = null;
   }
@@ -131,6 +172,7 @@
       amount: form.amount === '' ? '' : Number(form.amount),
       notes: form.notes.trim(),
       dateCreated: new Date().toISOString(),
+      addedBy: settings.person,
       // $state.snapshot: unwrap the Svelte proxy, IndexedDB can't clone proxies
       ...(photo ? { photo: $state.snapshot(photo) } : {}),
     };
@@ -161,26 +203,47 @@
 {#if !settings}
   <main>
     <h1>CatFlow setup</h1>
-    <form onsubmit={saveSetup}>
-      <label>
-        Apps Script URL
-        <input
-          type="url"
-          bind:value={setupUrl}
-          placeholder="https://script.google.com/macros/s/…/exec"
-          required
-        />
-      </label>
-      <label>
-        Secret token
-        <input type="password" bind:value={setupToken} required />
-      </label>
-      <button type="submit">Save</button>
-      <p class="hint">
-        Deploy <code>apps-script/Code.gs</code> as a web app on your sheet and
-        set the <code>TOKEN</code> script property. See the README.
-      </p>
-    </form>
+    {#if setupStep === 1}
+      <form onsubmit={setupNext}>
+        <label>
+          Apps Script URL
+          <input
+            type="url"
+            bind:value={setupUrl}
+            placeholder="https://script.google.com/macros/s/…/exec"
+            required
+          />
+        </label>
+        <label>
+          Secret token
+          <input type="password" bind:value={setupToken} required />
+        </label>
+        <button type="submit" disabled={setupBusy}>
+          {setupBusy ? 'Connecting…' : 'Next'}
+        </button>
+        <p class="hint">
+          Deploy <code>apps-script/Code.gs</code> as a web app on your sheet and
+          set the <code>TOKEN</code> script property. See the README.
+        </p>
+      </form>
+    {:else}
+      <form onsubmit={saveSetup}>
+        <label>
+          Who is adding transactions?
+          <select bind:value={setupPerson} required>
+            <option value=""></option>
+            {#each setupPeople as p (p)}<option value={p}>{p}</option>{/each}
+          </select>
+        </label>
+        <button type="submit">Save</button>
+        <button type="button" class="ghost" onclick={() => (setupStep = 1)}>
+          Back
+        </button>
+        <p class="hint">
+          People come from column C of the <code>Config</code> sheet tab.
+        </p>
+      </form>
+    {/if}
   </main>
 {:else}
   <main>

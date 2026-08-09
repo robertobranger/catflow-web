@@ -16,16 +16,16 @@ Create (or adjust) a spreadsheet with two tabs:
 
 **`Transactions`** — header row, columns in this exact order:
 
-| Date | ID  | Concept | Counterparty | Domain | Origin account | Destination account | Amount | Notes | Date created | Receipt URL |
-| ---- | --- | ------- | ------------ | ------ | -------------- | ------------------- | ------ | ----- | ------------ | ----------- |
+| Date | ID  | Concept | Counterparty | Domain | Origin account | Destination account | Amount | Notes | Date created | Receipt URL | Added by |
+| ---- | --- | ------- | ------------ | ------ | -------------- | ------------------- | ------ | ----- | ------------ | ----------- | -------- |
 
-**`Config`** — accounts and domains:
+**`Config`** — accounts, domains, and people (who can add transactions):
 
-| Accounts | Domains   |
-| -------- | --------- |
-| Checking | Groceries |
-| Savings  | Rent      |
-| …        | …         |
+| Accounts | Domains   | People |
+| -------- | --------- | ------ |
+| Checking | Groceries | Rob    |
+| Savings  | Rent      | Ana    |
+| …        | …         | …      |
 
 ## 2. Deploy the Apps Script backend
 
@@ -37,6 +37,10 @@ Create (or adjust) a spreadsheet with two tabs:
    - `spreadsheets.currentonly` — only the sheet the script is bound to
    - `drive.file` — only Drive files/folders the script itself creates; it
      cannot read or touch anything else in your Drive
+
+   The manifest also enables the **Advanced Drive Service** (Drive v3), which
+   the code uses instead of `DriveApp` — `DriveApp` always demands full Drive
+   access and would defeat the narrow scope.
 2. **Project Settings → Script Properties → Add script property**:
    - Property: `TOKEN`
    - Value: a long random secret (e.g. run `openssl rand -hex 24`)
@@ -126,11 +130,14 @@ versions on next launch (`registerType: 'autoUpdate'`).
 ## 4. First run on your phone
 
 1. Open `https://<you>.github.io/catflow-web/`.
-2. Enter the Apps Script `/exec` URL and your secret token.
-3. Add to home screen (browser menu → _Install app_ / _Add to Home Screen_).
+2. Enter the Apps Script `/exec` URL and your secret token, then tap **Next**.
+3. Pick who is adding transactions (names come from the `People` column of the
+   `Config` tab). Each saved transaction is stamped with this name in the
+   "Added by" column.
+4. Add to home screen (browser menu → _Install app_ / _Add to Home Screen_).
 
-Both values are stored only in your browser's localStorage, never in the
-repo. The ⚙ button lets you re-enter them.
+All values are stored only in your browser's localStorage, never in the
+repo. The ⚙ button lets you re-enter them (e.g. to switch person).
 
 ## Development
 

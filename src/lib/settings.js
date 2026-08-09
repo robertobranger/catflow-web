@@ -5,7 +5,7 @@ export function loadSettings() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
-    if (!s.scriptUrl || !s.token) return null;
+    if (!s.scriptUrl || !s.token || !s.person) return null;
     return s;
   } catch {
     return null;
