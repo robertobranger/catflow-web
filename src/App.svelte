@@ -258,7 +258,15 @@
       <input
         type="file"
         accept="image/*"
-        id="receipt-input"
+        capture="environment"
+        id="receipt-camera"
+        onchange={onPhotoPicked}
+        hidden
+      />
+      <input
+        type="file"
+        accept="image/*"
+        id="receipt-gallery"
         onchange={onPhotoPicked}
         hidden
       />
@@ -269,15 +277,25 @@
             Remove
           </button>
         </div>
+      {:else if photoBusy}
+        <button type="button" class="ghost" disabled>Processing…</button>
       {:else}
-        <button
-          type="button"
-          class="ghost"
-          disabled={photoBusy}
-          onclick={() => document.getElementById('receipt-input').click()}
-        >
-          {photoBusy ? 'Processing…' : '📷 Add receipt'}
-        </button>
+        <div class="receipt-row">
+          <button
+            type="button"
+            class="ghost"
+            onclick={() => document.getElementById('receipt-camera').click()}
+          >
+            📷 Take photo
+          </button>
+          <button
+            type="button"
+            class="ghost"
+            onclick={() => document.getElementById('receipt-gallery').click()}
+          >
+            🖼 From gallery
+          </button>
+        </div>
       {/if}
 
       <button type="submit" disabled={submitting || photoBusy}>
