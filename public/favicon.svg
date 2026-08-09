@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#2563eb"/>
+  <!-- cat head -->
+  <path d="M18 22 L18 12 L26 19 Q32 16.5 38 19 L46 12 L46 22 Q50 27.5 50 34 Q50 48 32 48 Q14 48 14 34 Q14 27.5 18 22 Z" fill="#ffffff"/>
+  <!-- eyes -->
+  <circle cx="25" cy="32" r="2.6" fill="#2563eb"/>
+  <circle cx="39" cy="32" r="2.6" fill="#2563eb"/>
+  <!-- nose -->
+  <path d="M30 38 L34 38 L32 41 Z" fill="#2563eb"/>
+  <!-- flow line -->
+  <path d="M12 56 Q22 50 32 56 Q42 62 52 56" stroke="#ffffff" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+</svg>

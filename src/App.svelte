@@ -1,0 +1,244 @@
+<script>
+  import { loadSettings, saveSettings, clearSettings } from './lib/settings.js';
+  import { loadCachedMeta, refreshMeta, rememberLocal } from './lib/meta.js';
+  import { getQueue, enqueue, flushQueue } from './lib/queue.js';
+
+  let settings = $state(loadSettings());
+  let meta = $state(loadCachedMeta());
+  let pending = $state(0);
+  let toast = $state(null);
+  let submitting = $state(false);
+
+  // Setup form
+  let setupUrl = $state('');
+  let setupToken = $state('');
+
+  // Transaction form
+  const today = () => new Date().toISOString().slice(0, 10);
+  let form = $state(newForm());
+
+  function newForm(keepDate) {
+    return {
+      date: keepDate || today(),
+      concept: '',
+      counterparty: '',
+      domain: '',
+      origin: '',
+      destination: '',
+      amount: '',
+      notes: '',
+    };
+  }
+
+  function showToast(message, kind = 'ok') {
+    toast = { message, kind };
+    setTimeout(() => (toast = null), 3500);
+  }
+
+  async function updatePending() {
+    pending = (await getQueue()).length;
+  }
+
+  async function sync() {
+    if (!settings) return;
+    const { sent, remaining } = await flushQueue();
+    pending = remaining;
+    if (sent > 0 && remaining === 0) showToast(`Synced ${sent} pending entr${sent === 1 ? 'y' : 'ies'}`);
+    try {
+      meta = await refreshMeta();
+    } catch {
+      /* offline or backend unreachable; cached meta is fine */
+    }
+  }
+
+  $effect(() => {
+    updatePending();
+    if (settings) sync();
+    const onOnline = () => sync();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  });
+
+  function saveSetup(e) {
+    e.preventDefault();
+    const scriptUrl = setupUrl.trim();
+    const token = setupToken.trim();
+    if (!scriptUrl.startsWith('https://script.google.com/')) {
+      showToast('URL should be an Apps Script /exec URL', 'error');
+      return;
+    }
+    saveSettings({ scriptUrl, token });
+    settings = { scriptUrl, token };
+  }
+
+  function reconfigure() {
+    if (settings) {
+      setupUrl = settings.scriptUrl;
+      setupToken = settings.token;
+    }
+    clearSettings();
+    settings = null;
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    if (submitting) return;
+    submitting = true;
+
+    const tx = {
+      id: crypto.randomUUID(),
+      date: form.date,
+      concept: form.concept.trim(),
+      counterparty: form.counterparty.trim(),
+      domain: form.domain,
+      origin: form.origin,
+      destination: form.destination,
+      amount: form.amount === '' ? '' : Number(form.amount),
+      notes: form.notes.trim(),
+      dateCreated: new Date().toISOString(),
+    };
+
+    try {
+      await enqueue(tx);
+      meta = rememberLocal(meta, tx);
+      form = newForm(form.date);
+
+      const { remaining, error } = await flushQueue();
+      pending = remaining;
+      if (remaining === 0) {
+        showToast('Transaction saved');
+      } else {
+        showToast(`Saved offline (${remaining} pending)`, 'warn');
+        if (error) console.warn('flush failed:', error);
+      }
+    } catch (err) {
+      showToast(`Failed to save: ${err.message}`, 'error');
+    } finally {
+      submitting = false;
+    }
+  }
+</script>
+
+{#if !settings}
+  <main>
+    <h1>CatFlow setup</h1>
+    <form onsubmit={saveSetup}>
+      <label>
+        Apps Script URL
+        <input
+          type="url"
+          bind:value={setupUrl}
+          placeholder="https://script.google.com/macros/s/…/exec"
+          required
+        />
+      </label>
+      <label>
+        Secret token
+        <input type="password" bind:value={setupToken} required />
+      </label>
+      <button type="submit">Save</button>
+      <p class="hint">
+        Deploy <code>apps-script/Code.gs</code> as a web app on your sheet and
+        set the <code>TOKEN</code> script property. See the README.
+      </p>
+    </form>
+  </main>
+{:else}
+  <main>
+    <header>
+      <h1>CatFlow</h1>
+      <div class="header-right">
+        {#if pending > 0}
+          <button class="badge" onclick={sync} title="Tap to retry sync">
+            {pending} pending
+          </button>
+        {/if}
+        <button class="ghost" onclick={reconfigure} aria-label="Settings">⚙</button>
+      </div>
+    </header>
+
+    <form onsubmit={submit}>
+      <label>
+        Date
+        <input type="date" bind:value={form.date} required />
+      </label>
+
+      <label>
+        Concept
+        <input
+          type="text"
+          bind:value={form.concept}
+          list="concepts"
+          autocomplete="off"
+          required
+        />
+        <datalist id="concepts">
+          {#each meta.concepts as c (c)}<option value={c}></option>{/each}
+        </datalist>
+      </label>
+
+      <label>
+        Counterparty
+        <input
+          type="text"
+          bind:value={form.counterparty}
+          list="counterparties"
+          autocomplete="off"
+        />
+        <datalist id="counterparties">
+          {#each meta.counterparties as c (c)}<option value={c}></option>{/each}
+        </datalist>
+      </label>
+
+      <label>
+        Domain
+        <select bind:value={form.domain}>
+          <option value=""></option>
+          {#each meta.domains as d (d)}<option value={d}>{d}</option>{/each}
+        </select>
+      </label>
+
+      <div class="row">
+        <label>
+          Origin account
+          <select bind:value={form.origin}>
+            <option value=""></option>
+            {#each meta.accounts as a (a)}<option value={a}>{a}</option>{/each}
+          </select>
+        </label>
+
+        <label>
+          Destination account
+          <select bind:value={form.destination}>
+            <option value=""></option>
+            {#each meta.accounts as a (a)}<option value={a}>{a}</option>{/each}
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Amount
+        <input
+          type="number"
+          inputmode="decimal"
+          step="0.01"
+          bind:value={form.amount}
+          required
+        />
+      </label>
+
+      <label>
+        Notes
+        <textarea rows="2" bind:value={form.notes}></textarea>
+      </label>
+
+      <button type="submit" disabled={submitting}>
+        {submitting ? 'Saving…' : 'Add transaction'}
+      </button>
+    </form>
+  </main>
+{/if}
+
+{#if toast}
+  <div class="toast {toast.kind}">{toast.message}</div>
+{/if}
