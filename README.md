@@ -48,10 +48,58 @@ New version** so the `/exec` URL picks up the change.
 
 ## 3. Deploy the app to GitHub Pages
 
-1. Push this repo to GitHub as `catflow-web`. (If you use a different repo
-   name, change `base` and `navigateFallback` in `vite.config.js`.)
-2. In the repo: **Settings → Pages → Source: GitHub Actions**.
-3. Push to `main` — the included workflow builds and deploys automatically..
+The repo ships with a workflow at
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) that builds
+the site and publishes it to GitHub Pages on every push to `main`/`master`.
+
+### 3.1 One-time repository setup
+
+1. Push the repo to GitHub (repo name `catflow-web` — if you use a different
+   name, change `base` and `navigateFallback` in `vite.config.js` first):
+
+   ```sh
+   git push -u origin master
+   ```
+
+2. On github.com, open the repo → **Settings → Pages**.
+3. Under **Build and deployment → Source**, select **GitHub Actions**
+   (not "Deploy from a branch"). This is the step people miss — without it
+   the deploy job fails with a "Pages site not found" / HTTP 404 error.
+4. If the first workflow run already failed because of that, just re-run it:
+   **Actions → Deploy to GitHub Pages → failed run → Re-run all jobs**, or
+   trigger it manually via **Actions → Deploy to GitHub Pages → Run
+   workflow** (the workflow has `workflow_dispatch` enabled).
+
+### 3.2 What the workflow does
+
+- **build job**: checks out the repo, installs Node 22 with npm caching,
+  runs `npm ci` (exact versions from `package-lock.json`, so the lockfile
+  must be committed), runs `npm run build`, and uploads `dist/` as a Pages
+  artifact.
+- **deploy job**: publishes that artifact to the `github-pages` environment.
+  No token setup needed — it uses the workflow's built-in OIDC permissions
+  (`pages: write`, `id-token: write`), already declared in the file.
+
+### 3.3 Verifying a deployment
+
+1. **Actions** tab → the latest "Deploy to GitHub Pages" run should show
+   both `build` and `deploy` green.
+2. The `deploy` job's summary shows the published URL:
+   `https://<your-username>.github.io/catflow-web/`.
+3. Open it — you should see the CatFlow setup screen.
+
+Every later `git push` redeploys automatically; the PWA picks up new
+versions on next launch (`registerType: 'autoUpdate'`).
+
+### 3.4 Troubleshooting
+
+| Symptom | Fix |
+| ------- | --- |
+| `deploy` fails with 404 / "Not Found" | Settings → Pages → Source must be **GitHub Actions**. |
+| `npm ci` fails | `package-lock.json` missing or out of sync — run `npm install` locally and commit it. |
+| Site loads but assets 404 | Repo name doesn't match `base: '/catflow-web/'` in `vite.config.js`. |
+| Workflow never runs | You pushed to a branch other than `main`/`master`, or Actions are disabled (Settings → Actions → General). |
+| Old version keeps showing on phone | Close and reopen the installed app; the service worker updates in the background on first load. |
 
 ## 4. First run on your phone
 
