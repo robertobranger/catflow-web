@@ -16,16 +16,16 @@ Create (or adjust) a spreadsheet with two tabs:
 
 **`Transactions`** — header row, columns in this exact order:
 
-| Date | ID | Concept | Counterparty | Domain | Origin account | Destination account | Amount | Notes | Date created |
-| ---- | -- | ------- | ------------ | ------ | -------------- | ------------------- | ------ | ----- | ------------ |
+| Date | ID  | Concept | Counterparty | Domain | Origin account | Destination account | Amount | Notes | Date created |
+| ---- | --- | ------- | ------------ | ------ | -------------- | ------------------- | ------ | ----- | ------------ |
 
 **`Config`** — accounts and domains:
 
-| Accounts | Domains |
-| -------- | ------- |
+| Accounts | Domains   |
+| -------- | --------- |
 | Checking | Groceries |
-| Savings  | Rent |
-| …        | … |
+| Savings  | Rent      |
+| …        | …         |
 
 ## 2. Deploy the Apps Script backend
 
@@ -51,13 +51,13 @@ New version** so the `/exec` URL picks up the change.
 1. Push this repo to GitHub as `catflow-web`. (If you use a different repo
    name, change `base` and `navigateFallback` in `vite.config.js`.)
 2. In the repo: **Settings → Pages → Source: GitHub Actions**.
-3. Push to `main` — the included workflow builds and deploys automatically.
+3. Push to `main` — the included workflow builds and deploys automatically..
 
 ## 4. First run on your phone
 
 1. Open `https://<you>.github.io/catflow-web/`.
 2. Enter the Apps Script `/exec` URL and your secret token.
-3. Add to home screen (browser menu → *Install app* / *Add to Home Screen*).
+3. Add to home screen (browser menu → _Install app_ / _Add to Home Screen_).
 
 Both values are stored only in your browser's localStorage, never in the
 repo. The ⚙ button lets you re-enter them.
