@@ -2,12 +2,15 @@
   import { loadSettings, saveSettings, clearSettings } from './lib/settings.js';
   import { loadCachedMeta, refreshMeta, rememberLocal } from './lib/meta.js';
   import { getQueue, enqueue, flushQueue } from './lib/queue.js';
+  import { processPhoto, photoPreviewUrl } from './lib/photo.js';
 
   let settings = $state(loadSettings());
   let meta = $state(loadCachedMeta());
   let pending = $state(0);
   let toast = $state(null);
   let submitting = $state(false);
+  let photo = $state(null);
+  let photoBusy = $state(false);
 
   // Setup form
   let setupUrl = $state('');
@@ -83,6 +86,20 @@
     settings = null;
   }
 
+  async function onPhotoPicked(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    photoBusy = true;
+    try {
+      photo = await processPhoto(file);
+    } catch (err) {
+      showToast(`Photo failed: ${err.message}`, 'error');
+    } finally {
+      e.target.value = '';
+      photoBusy = false;
+    }
+  }
+
   async function submit(e) {
     e.preventDefault();
     if (submitting) return;
@@ -99,12 +116,14 @@
       amount: form.amount === '' ? '' : Number(form.amount),
       notes: form.notes.trim(),
       dateCreated: new Date().toISOString(),
+      ...(photo ? { photo } : {}),
     };
 
     try {
       await enqueue(tx);
       meta = rememberLocal(meta, tx);
       form = newForm(form.date);
+      photo = null;
 
       const { remaining, error } = await flushQueue();
       pending = remaining;
@@ -236,7 +255,32 @@
         <textarea rows="2" bind:value={form.notes}></textarea>
       </label>
 
-      <button type="submit" disabled={submitting}>
+      <input
+        type="file"
+        accept="image/*"
+        id="receipt-input"
+        onchange={onPhotoPicked}
+        hidden
+      />
+      {#if photo}
+        <div class="receipt-row">
+          <img src={photoPreviewUrl(photo)} alt="Receipt preview" class="receipt-thumb" />
+          <button type="button" class="ghost" onclick={() => (photo = null)}>
+            Remove
+          </button>
+        </div>
+      {:else}
+        <button
+          type="button"
+          class="ghost"
+          disabled={photoBusy}
+          onclick={() => document.getElementById('receipt-input').click()}
+        >
+          {photoBusy ? 'Processing…' : '📷 Add receipt'}
+        </button>
+      {/if}
+
+      <button type="submit" disabled={submitting || photoBusy}>
         {submitting ? 'Saving…' : 'Add transaction'}
       </button>
     </form>

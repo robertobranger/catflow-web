@@ -1,6 +1,7 @@
 import { get, set } from 'idb-keyval';
 import { addTransaction } from './api.js';
 
+// Queue items may carry a base64 receipt photo (tx.photo) of up to ~4 MB.
 const KEY = 'catflow.queue';
 
 export async function getQueue() {

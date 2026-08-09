@@ -13,8 +13,17 @@
  * Sheet layout expected:
  *  - Tab "Transactions" with header row:
  *      Date | ID | Concept | Counterparty | Domain | Origin account |
- *      Destination account | Amount | Notes | Date created
+ *      Destination account | Amount | Notes | Date created | Receipt URL
  *  - Tab "Config": Accounts in A2:A, Domains in B2:B (A1/B1 are headers).
+ *
+ * Receipt photos:
+ *  - "Receipt URL" is column K. Uploaded photos are stored in a Drive folder
+ *    named 'CatFlow Receipts' (created automatically; its id is cached in the
+ *    RECEIPT_FOLDER_ID script property).
+ *  - IMPORTANT: the Drive upload adds a new OAuth scope. After pasting this
+ *    version you must re-authorize the script and create a NEW deployment
+ *    version (Deploy -> Manage deployments -> Edit -> New version) or the
+ *    first upload will fail.
  */
 
 var TRANSACTIONS_SHEET = 'Transactions';
@@ -31,7 +40,15 @@ var COL = {
   AMOUNT: 7,
   NOTES: 8,
   CREATED: 9,
+  RECEIPT: 10,
 };
+
+/** Health check: open the /exec URL in a browser to verify the deployment. */
+function doGet() {
+  return ContentService.createTextOutput(
+    JSON.stringify({ ok: true, service: 'catflow', hint: 'POST JSON to use the API' })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
 
 function doPost(e) {
   var out;
@@ -73,12 +90,19 @@ function addTransaction_(tx) {
     var sheet = getSheet_(TRANSACTIONS_SHEET);
 
     // Idempotency: skip if this UUID is already present (offline retries).
+    // This must stay BEFORE the Drive upload so retries never create
+    // duplicate receipt files.
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
       var ids = sheet.getRange(2, COL.ID + 1, lastRow - 1, 1).getValues();
       for (var i = 0; i < ids.length; i++) {
         if (ids[i][0] === tx.id) return { duplicate: true };
       }
+    }
+
+    var receiptUrl = '';
+    if (tx.photo && tx.photo.data) {
+      receiptUrl = saveReceipt_(tx);
     }
 
     var row = [];
@@ -92,12 +116,50 @@ function addTransaction_(tx) {
     row[COL.AMOUNT] = tx.amount === '' || tx.amount == null ? '' : Number(tx.amount);
     row[COL.NOTES] = tx.notes || '';
     row[COL.CREATED] = tx.dateCreated || new Date().toISOString();
+    row[COL.RECEIPT] = receiptUrl;
 
     sheet.appendRow(row);
     return { duplicate: false };
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Upload the transaction's receipt photo ({ data: base64, mimeType }) to the
+ * 'CatFlow Receipts' Drive folder and return the file URL.
+ */
+function saveReceipt_(tx) {
+  var blob = Utilities.newBlob(
+    Utilities.base64Decode(tx.photo.data),
+    tx.photo.mimeType,
+    'receipt-' + tx.id + '.jpg'
+  );
+  var folder = getReceiptFolder_();
+  var file = folder.createFile(blob);
+  return file.getUrl();
+}
+
+/** Get or create the 'CatFlow Receipts' folder, caching its id. */
+function getReceiptFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('RECEIPT_FOLDER_ID');
+  if (id) {
+    try {
+      return DriveApp.getFolderById(id);
+    } catch (err) {
+      // Folder was deleted or id is stale; fall through and recreate.
+    }
+  }
+  var folder;
+  var existing = DriveApp.getFoldersByName('CatFlow Receipts');
+  if (existing.hasNext()) {
+    folder = existing.next();
+  } else {
+    folder = DriveApp.createFolder('CatFlow Receipts');
+  }
+  props.setProperty('RECEIPT_FOLDER_ID', folder.getId());
+  return folder;
 }
 
 function getMeta_() {

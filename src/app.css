@@ -144,6 +144,19 @@ button[type='submit']:disabled {
   border-radius: 999px;
 }
 
+.receipt-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.receipt-thumb {
+  max-width: 120px;
+  max-height: 120px;
+  border-radius: 8px;
+  display: block;
+}
+
 .hint {
   font-size: 0.8rem;
   color: var(--muted);

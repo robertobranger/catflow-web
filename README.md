@@ -16,8 +16,8 @@ Create (or adjust) a spreadsheet with two tabs:
 
 **`Transactions`** — header row, columns in this exact order:
 
-| Date | ID  | Concept | Counterparty | Domain | Origin account | Destination account | Amount | Notes | Date created |
-| ---- | --- | ------- | ------------ | ------ | -------------- | ------------------- | ------ | ----- | ------------ |
+| Date | ID  | Concept | Counterparty | Domain | Origin account | Destination account | Amount | Notes | Date created | Receipt URL |
+| ---- | --- | ------- | ------------ | ------ | -------------- | ------------------- | ------ | ----- | ------------ | ----------- |
 
 **`Config`** — accounts and domains:
 
@@ -45,6 +45,17 @@ Create (or adjust) a spreadsheet with two tabs:
 
 If you later edit `Code.gs`, use **Deploy → Manage deployments → Edit →
 New version** so the `/exec` URL picks up the change.
+
+### Receipt photos
+
+An optional receipt photo can be attached to each transaction. Photos are
+uploaded to a Google Drive folder named **"CatFlow Receipts"**, created
+automatically on first upload, and the file's Drive URL is written to the
+"Receipt URL" column (K).
+
+**IMPORTANT:** after pasting the updated `Code.gs`, the script needs Drive
+permission — open **Deploy → Manage deployments → edit → New version →
+Deploy**, and re-authorize when prompted.
 
 ## 3. Deploy the app to GitHub Pages
 
