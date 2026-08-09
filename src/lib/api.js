@@ -15,7 +15,18 @@ async function call(action, payload = {}) {
     body: JSON.stringify({ action, token: settings.token, ...payload }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // Apps Script returns an HTML page (login/error) instead of JSON when
+    // the deployment access is not "Anyone" or the URL is wrong.
+    throw new Error(
+      'Backend returned a non-JSON page. Check the deployment is a Web app ' +
+        'with access "Anyone" and the URL ends in /exec'
+    );
+  }
   if (!data.ok) throw new Error(data.error || 'Request failed');
   return data;
 }

@@ -41,9 +41,12 @@
 
   async function sync() {
     if (!settings) return;
-    const { sent, remaining } = await flushQueue();
+    const { sent, remaining, error } = await flushQueue();
     pending = remaining;
     if (sent > 0 && remaining === 0) showToast(`Synced ${sent} pending entr${sent === 1 ? 'y' : 'ies'}`);
+    if (error && navigator.onLine) {
+      showToast(`Sync failed: ${error.message}`, 'error');
+    }
     try {
       meta = await refreshMeta();
     } catch {
@@ -107,9 +110,10 @@
       pending = remaining;
       if (remaining === 0) {
         showToast('Transaction saved');
+      } else if (error && navigator.onLine) {
+        showToast(`Queued — sync failed: ${error.message}`, 'error');
       } else {
         showToast(`Saved offline (${remaining} pending)`, 'warn');
-        if (error) console.warn('flush failed:', error);
       }
     } catch (err) {
       showToast(`Failed to save: ${err.message}`, 'error');
