@@ -116,7 +116,8 @@
       amount: form.amount === '' ? '' : Number(form.amount),
       notes: form.notes.trim(),
       dateCreated: new Date().toISOString(),
-      ...(photo ? { photo } : {}),
+      // $state.snapshot: unwrap the Svelte proxy, IndexedDB can't clone proxies
+      ...(photo ? { photo: $state.snapshot(photo) } : {}),
     };
 
     try {
