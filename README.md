@@ -31,6 +31,12 @@ Create (or adjust) a spreadsheet with two tabs:
 
 1. In the sheet: **Extensions → Apps Script**, delete the default code and
    paste in [`apps-script/Code.gs`](apps-script/Code.gs).
+   Then enable **Project Settings → Show "appsscript.json" manifest file in
+   editor** and paste [`apps-script/appsscript.json`](apps-script/appsscript.json)
+   over it. The manifest restricts the script's OAuth scopes to the minimum:
+   - `spreadsheets.currentonly` — only the sheet the script is bound to
+   - `drive.file` — only Drive files/folders the script itself creates; it
+     cannot read or touch anything else in your Drive
 2. **Project Settings → Script Properties → Add script property**:
    - Property: `TOKEN`
    - Value: a long random secret (e.g. run `openssl rand -hex 24`)
@@ -53,9 +59,14 @@ uploaded to a Google Drive folder named **"CatFlow Receipts"**, created
 automatically on first upload, and the file's Drive URL is written to the
 "Receipt URL" column (K).
 
-**IMPORTANT:** after pasting the updated `Code.gs`, the script needs Drive
-permission — open **Deploy → Manage deployments → edit → New version →
-Deploy**, and re-authorize when prompted.
+Because of the narrow `drive.file` scope the script cannot place the folder
+next to your sheet automatically, but you can move it there yourself in
+Drive — the script tracks the folder by id, so moving or renaming it is fine.
+
+**IMPORTANT:** whenever `Code.gs` or the manifest changes the required
+permissions, redeploying is not enough — deployed web apps do not re-prompt
+for new scopes. In the script editor, select the **`authorize`** function in
+the toolbar dropdown and **Run** it once, then approve the consent dialog.
 
 ## 3. Deploy the app to GitHub Pages
 

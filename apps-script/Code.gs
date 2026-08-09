@@ -3,6 +3,9 @@
  *
  * Setup:
  *  1. Open your Google Sheet -> Extensions -> Apps Script, paste this file.
+ *     Also enable Project Settings -> "Show appsscript.json manifest file"
+ *     and paste apps-script/appsscript.json over it (it restricts the OAuth
+ *     scopes to the bound sheet + only files this script creates).
  *  2. Project Settings -> Script Properties -> add property:
  *       TOKEN = <a long random secret, same one you enter in the app>
  *  3. Deploy -> New deployment -> Web app:
@@ -19,7 +22,9 @@
  * Receipt photos:
  *  - "Receipt URL" is column K. Uploaded photos are stored in a Drive folder
  *    named 'CatFlow Receipts' (created automatically; its id is cached in the
- *    RECEIPT_FOLDER_ID script property).
+ *    RECEIPT_FOLDER_ID script property). With the drive.file scope the script
+ *    can only access files/folders it created — move the folder anywhere in
+ *    your Drive (e.g. next to the sheet); the cached id keeps working.
  *  - IMPORTANT: the Drive upload adds a new OAuth scope. After pasting this
  *    version you must re-authorize the script and create a NEW deployment
  *    version (Deploy -> Manage deployments -> Edit -> New version) or the
@@ -42,6 +47,18 @@ var COL = {
   CREATED: 9,
   RECEIPT: 10,
 };
+
+/**
+ * Run this ONCE from the Apps Script editor (Run > authorize) after pasting
+ * new code that needs extra permissions (e.g. Drive for receipt photos).
+ * Deployed web apps do NOT re-prompt for new scopes on their own; running a
+ * function in the editor forces the OAuth consent dialog.
+ */
+function authorize() {
+  getReceiptFolder_(); // touches Drive, triggering the permission prompt
+  SpreadsheetApp.getActiveSpreadsheet().getName(); // touches Sheets
+  Logger.log('Authorized. Receipt folder ready.');
+}
 
 /** Health check: open the /exec URL in a browser to verify the deployment. */
 function doGet() {
@@ -140,7 +157,14 @@ function saveReceipt_(tx) {
   return file.getUrl();
 }
 
-/** Get or create the 'CatFlow Receipts' folder, caching its id. */
+/**
+ * Get or create the 'CatFlow Receipts' folder, caching its id.
+ *
+ * The script runs with the narrow drive.file scope: it can only see files
+ * and folders it created itself. That is why we track the folder by cached
+ * id instead of searching Drive by name (searches are not permitted).
+ * You can freely move or rename the folder in Drive — the id stays valid.
+ */
 function getReceiptFolder_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('RECEIPT_FOLDER_ID');
@@ -151,13 +175,7 @@ function getReceiptFolder_() {
       // Folder was deleted or id is stale; fall through and recreate.
     }
   }
-  var folder;
-  var existing = DriveApp.getFoldersByName('CatFlow Receipts');
-  if (existing.hasNext()) {
-    folder = existing.next();
-  } else {
-    folder = DriveApp.createFolder('CatFlow Receipts');
-  }
+  var folder = DriveApp.createFolder('CatFlow Receipts');
   props.setProperty('RECEIPT_FOLDER_ID', folder.getId());
   return folder;
 }
